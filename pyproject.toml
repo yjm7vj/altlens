@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "altlens"
+version = "0.1.0"
+description = "Alternative investments analytics platform for AIA research."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.116",
+    "pydantic>=2.8",
+    "scipy>=1.14",
+    "sqlalchemy>=2.0",
+    "asyncpg>=0.29",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+]
+
+[tool.setuptools.packages.find]
+where = ["backend"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["backend"]
