@@ -7,9 +7,11 @@ This repository is being developed gradually. The current focus is a venture-cap
 - reliable fund performance metrics
 - a FastAPI backend
 - a React dashboard
-- a constrained AI search layer that calls approved backend tools
+- a constrained AI research agent that calls approved backend tools
+- structured, source-backed research briefs
 
 See [BUILD_PLAN.md](BUILD_PLAN.md) for the full product and architecture plan.
+See [PRODUCT_DIRECTION.md](PRODUCT_DIRECTION.md) for the larger AI research-agent vision.
 
 ## Development Roadmap
 
@@ -20,8 +22,11 @@ The project will be built in small commits over the month:
 3. REST endpoints for funds, performance, and metrics
 4. Frontend dashboard shell
 5. Charts and fund exploration views
-6. AI query endpoint with constrained tools
-7. Demo polish, deployment config, and documentation
+6. Source and assumption tracking
+7. Research brief generation
+8. AI query endpoint with constrained tools
+9. Local/cloud model provider options
+10. Demo polish, deployment config, and documentation
 
 ## Backend Setup
 

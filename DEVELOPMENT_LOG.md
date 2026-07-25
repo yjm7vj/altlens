@@ -128,3 +128,69 @@ AltLens currently has a tested backend metrics module that can:
 - handle unsolvable IRR cases without crashing
 
 The next development slice should connect this metric layer to database models and seed data.
+
+## 2026-07-24
+
+### Product Direction Expanded Toward AI Research Briefs
+
+AltLens' direction was expanded from a basic dashboard with an AI search bar into a more distinctive alternative-investment research agent.
+
+The product should take inspiration from public-market financial research agents, but avoid becoming a generic stock-market or Bloomberg-style clone. Its unique focus should be private-market and alternative-investment workflows:
+
+- fund and manager comparison
+- vintage-year analysis
+- cash-flow based performance metrics
+- portfolio-company exposure
+- sector and theme research
+- diligence memo generation
+- source-backed assumptions
+- clear labels for verified, estimated, and illustrative data
+
+Added `PRODUCT_DIRECTION.md` to capture this strategy.
+
+### Important Development Decision
+
+The AI output should eventually be a structured research brief instead of a loose chat answer.
+
+Research briefs should include:
+
+- executive summary
+- key metrics
+- supporting tables
+- charts
+- cited sources
+- assumptions
+- data quality notes
+- follow-up questions
+
+This affects future backend and frontend design because API responses should support structured content, not only plain text.
+
+### Agent Architecture Direction
+
+The AI layer should continue to use constrained backend tools instead of unrestricted SQL generation.
+
+Future tools may include:
+
+- `get_fund_profile`
+- `get_fund_metrics`
+- `compare_funds`
+- `get_top_performers`
+- `get_vintage_year_summary`
+- `get_sector_exposure`
+- `generate_research_brief`
+- `explain_metric_methodology`
+
+This keeps the product safer and more verifiable, especially because financial data can be incomplete or sensitive.
+
+### Local Model Direction
+
+AltLens should eventually support both hosted and local model providers.
+
+Planned direction:
+
+1. implement a provider interface
+2. support OpenAI first
+3. add Ollama after the tool layer is stable
+4. expose model selection without assuming every model can handle every research workflow
+
+This matters because local models are useful for sensitive research material, but smaller models may struggle with multi-step financial tool use.
