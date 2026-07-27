@@ -194,3 +194,44 @@ Planned direction:
 4. expose model selection without assuming every model can handle every research workflow
 
 This matters because local models are useful for sensitive research material, but smaller models may struggle with multi-step financial tool use.
+
+## 2026-07-26
+
+### Database And Research-Brief Shape Added
+
+Added the first SQLAlchemy models for the private-market data layer:
+
+- funds
+- cash-flow events
+- performance snapshots
+- cached fund metrics
+- source references
+
+The fund model now includes private-market context fields such as manager name, strategy, geography, vintage year, asset class, and data quality. These fields support the product direction of comparing funds and managers instead of organizing everything around public tickers.
+
+Added source-reference tracking so fund data can be tied back to a source, confidence level, and data status. This supports the planned source and assumption ledger for research briefs.
+
+### Structured Research Brief Schemas
+
+Added Pydantic schemas for the future brief-generation workflow:
+
+- fund summaries
+- metric summaries
+- source references
+- brief sections
+- complete research briefs
+
+This gives the backend a structured response target before the AI agent is implemented. The product can start with deterministic brief generation and later let a constrained agent assemble the same shape.
+
+### Tests Added
+
+Added tests that verify:
+
+- the expected database tables are registered
+- the fund model includes private-market context and data-quality fields
+- source references can attach to funds for auditability
+- research briefs can group funds, metrics, sources, assumptions, and data-quality notes
+
+### Development Notes
+
+This slice intentionally avoids adding a database connection, migrations, or API routes. The goal is to define the domain shape first, then connect it to storage and endpoints in later commits.
