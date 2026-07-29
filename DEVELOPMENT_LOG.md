@@ -235,3 +235,45 @@ Added tests that verify:
 ### Development Notes
 
 This slice intentionally avoids adding a database connection, migrations, or API routes. The goal is to define the domain shape first, then connect it to storage and endpoints in later commits.
+
+## 2026-07-28
+
+### Demo Research Data Added
+
+Added a small in-memory demo dataset for early product wiring. The dataset includes:
+
+- illustrative VC fund profiles
+- synthetic cash-flow events
+- source-reference records with low-confidence illustrative labels
+
+This gives the backend realistic-enough private-market objects to exercise calculations and brief generation before a database connection or verified data pipeline exists.
+
+### Deterministic Research Brief Generation
+
+Added a deterministic research-brief builder that turns demo fund data into the existing `ResearchBrief` schema.
+
+The brief generator:
+
+- calculates IRR and MOIC from seed cash flows
+- ranks funds by MOIC for a simple performance snapshot
+- includes structured fund summaries
+- includes source references
+- includes assumptions
+- includes data-quality warnings
+
+This is an important step toward the AI-agent vision because the future agent can call this kind of backend capability instead of inventing financial answers directly.
+
+### Tests Added
+
+Added tests that verify generated demo briefs include:
+
+- the original research question
+- fund summaries
+- metric summaries
+- source references
+- illustrative data-quality labels
+- assumptions and warnings about synthetic demo data
+
+### Development Notes
+
+The demo brief generator is intentionally deterministic. AI generation should come later, after the backend has reliable tools and response shapes that can be tested without a model provider.
