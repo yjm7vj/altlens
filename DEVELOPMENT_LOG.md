@@ -277,3 +277,38 @@ Added tests that verify generated demo briefs include:
 ### Development Notes
 
 The demo brief generator is intentionally deterministic. AI generation should come later, after the backend has reliable tools and response shapes that can be tested without a model provider.
+
+## 2026-08-01
+
+### Demo Analytics Tool Layer Added
+
+Added a small analytics layer over the demo fund dataset. This layer is the first backend shape that resembles the future constrained agent tools.
+
+New analytics capabilities include:
+
+- listing demo funds with simple filters
+- looking up a fund profile by name
+- calculating fund metrics from seed cash flows
+- ranking top performers by IRR or MOIC
+- comparing a requested set of funds
+
+This is useful because future AI routes should call well-defined backend tools rather than generate database queries or invent answers.
+
+### Analytics Tests Added
+
+Added tests that verify:
+
+- vintage-year filtering
+- case-insensitive fund lookup
+- metric inclusion in fund profiles
+- top-performer sorting
+- rejection of unsupported ranking metrics
+- comparison output limited to requested funds
+
+These tests pin down expected tool behavior before these functions are exposed through API routes or an agent interface.
+
+### Research Brief Metric Refactor
+
+Updated deterministic research brief generation to reuse the analytics metric calculation function.
+
+This removes duplicated metric logic between brief generation and tool-style analytics functions. It also makes the future agent path cleaner: research briefs and direct analytics queries now rely on the same metric calculation route.
