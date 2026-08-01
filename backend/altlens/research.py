@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from altlens.analytics import calculate_fund_metrics
 from altlens.demo_data import (
     DemoFund,
-    get_demo_cash_flows,
     get_demo_funds,
     get_demo_sources,
 )
-from altlens.metrics import calculate_irr, calculate_moic
 from altlens.schemas import (
     FundMetricSummary,
     FundSummary,
@@ -28,7 +27,7 @@ def generate_demo_research_brief(question: str, limit: int = 3) -> ResearchBrief
             data_quality_notes=["No metrics were calculated because no funds were selected."],
         )
 
-    metrics = {fund.id: _calculate_metric_summary(fund) for fund in funds}
+    metrics = {fund.id: calculate_fund_metrics(fund.id) for fund in funds}
     ranked_funds = sorted(
         funds,
         key=lambda fund: metrics[fund.id].moic or Decimal("0"),
@@ -82,15 +81,6 @@ def generate_demo_research_brief(question: str, limit: int = 3) -> ResearchBrief
     )
 
 
-def _calculate_metric_summary(fund: DemoFund) -> FundMetricSummary:
-    cash_flows = get_demo_cash_flows(fund.id)
-
-    return FundMetricSummary(
-        irr=_to_decimal(calculate_irr(cash_flows), places=6),
-        moic=_to_decimal(calculate_moic(cash_flows), places=4),
-    )
-
-
 def _to_fund_summary(fund: DemoFund) -> FundSummary:
     return FundSummary(
         id=fund.id,
@@ -114,8 +104,3 @@ def _build_performance_snapshot(
         rows.append(f"{fund.name}: {metric.moic}x MOIC, {metric.irr} IRR")
 
     return " | ".join(rows)
-
-
-def _to_decimal(value: float, places: int) -> Decimal:
-    quantizer = Decimal("1").scaleb(-places)
-    return Decimal(str(value)).quantize(quantizer)
