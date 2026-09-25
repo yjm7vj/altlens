@@ -12,3 +12,6 @@ __pycache__/
 dist/
 build/
 node_modules/
+
+# Local agent/editor tooling
+.claude/
