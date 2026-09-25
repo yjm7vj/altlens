@@ -312,3 +312,259 @@ These tests pin down expected tool behavior before these functions are exposed t
 Updated deterministic research brief generation to reuse the analytics metric calculation function.
 
 This removes duplicated metric logic between brief generation and tool-style analytics functions. It also makes the future agent path cleaner: research briefs and direct analytics queries now rely on the same metric calculation route.
+
+## 2026-09-25
+
+### Project Completed Against The Build Plan
+
+This slice closed out the remaining items in the build plan and the product
+direction: the REST API, the AI query endpoint with constrained tools, model
+provider options, the React dashboard, source tracking in the UI, deployment
+configuration, and documentation.
+
+#### Demo Dataset Expanded
+
+The dataset grew from 3 funds to 10, which is the range the build plan called
+for. The additions cover a wider spread of vintages (2017 through 2022),
+strategies, and outcomes, including deliberately awkward cases:
+
+- `Pinnacle Enterprise Fund IV`, a mature 2017 fund with three realization
+  events and a long distribution history
+- `Lattice Early Stage II`, a 2022 fund still inside its investment period
+  with no distributions at all
+- several written-down portfolio positions, so the UI has to show a loss
+
+Two new record types were added: performance snapshots (NAV and cumulative
+distributions over time) and portfolio positions (company, sector, stage,
+invested, current mark). Positions are what make sector exposure possible.
+
+Source records are now generated per fund rather than hand-written, so every
+fund carries an illustrative-labelled source for both its cash flows and its
+descriptive fields.
+
+### Metric Layer Extended
+
+Added `calculate_dpi`, `calculate_rvpi`, `calculate_tvpi`, and the
+`total_paid_in` and `total_distributions` helpers.
+
+`calculate_moic` gained an optional `residual_value_usd` argument. With no
+residual value it behaves exactly as before, so existing behaviour and tests
+were unaffected. With one, it returns total value over paid-in, which is the
+standard definition.
+
+#### IRR For Unrealized Funds
+
+The most consequential decision in this slice. A fund that has called capital
+but made no distributions has no solvable IRR: every cash flow has the same
+sign, so there is no rate at which net present value crosses zero. The
+existing implementation correctly returned `0.0` for this case.
+
+That is correct arithmetic and a bad answer. `Lattice Early Stage II` would
+have shown 0% IRR next to a 1.29x MOIC, which reads as a failing fund rather
+than a young one.
+
+Added `with_residual_value`, which appends the latest NAV mark as a terminal
+distribution on the valuation date. `calculate_fund_metrics` applies it before
+solving. Lattice now reports 7.5% IRR, which is what its marks imply.
+
+This is a real assumption, not a formatting choice, so it is surfaced rather
+than hidden: it appears in the IRR methodology note, in every generated
+brief's assumption list, and in the data-quality notes attached to AI answers.
+
+### Analytics Layer Completed
+
+Added the remaining tool-shaped functions: `get_fund_detail`,
+`get_fund_performance`, `get_vintage_year_summary`, `get_sector_exposure`,
+`explain_metric_methodology`, `find_fund`, and `get_capital_timeline`.
+
+`find_fund` resolves an exact name first, then falls back to a substring
+match, but only when the substring matches exactly one fund. Several demo
+funds contain the word "ventures", and guessing between them would be worse
+than failing. There is a test pinning this.
+
+`get_capital_timeline` aggregates cumulative capital called against capital
+returned across any set of funds, carries NAV marks forward between snapshot
+dates, and identifies the break-even date where distributions overtake calls.
+This was added as a backend function rather than computed in the browser
+because it is a real analytical transform, and the product direction is
+explicit that chart-ready transforms belong in the approved analysis layer.
+
+`get_top_performers` now accepts irr, moic, tvpi, dpi, and rvpi. The existing
+test asserting that `dpi` was rejected as an unknown metric was updated, since
+DPI is now a supported ranking metric.
+
+### Research Briefs Made Structural
+
+Briefs gained tables, chart-ready data, and follow-up questions, and the
+schema gained `BriefTable`, `BriefChart`, and `follow_up_questions`.
+
+`generate_research_brief` can now be scoped by fund names or vintage year.
+`generate_demo_research_brief` remains as a thin wrapper so the existing entry
+point and its tests keep working.
+
+Brief sections now include realized-versus-unrealized, vintage context, and
+sector exposure alongside the performance snapshot.
+
+### AI Layer Implemented
+
+Three new modules.
+
+`ai_tools.py` defines the nine approved tools as a registry, each with a name,
+description, JSON-schema parameters, and a callable. Every tool returns both a
+human-readable summary and the structured data behind it, so any claim in an
+answer can be traced back to a calculation. Calling an unregistered tool
+raises rather than falling through to anything.
+
+`providers.py` defines a narrow `ModelProvider` interface with three
+implementations:
+
+- `RuleBasedProvider`, a deterministic keyword router
+- `OpenAIProvider`, hosted tool calling over the chat completions API
+- `OllamaProvider`, the same against a local Ollama server
+
+The hosted providers speak HTTP directly through `httpx` rather than pulling
+in LangChain. The build plan suggested LangChain, but the agent loop here is
+one plan step and one narration step against a fixed tool registry, and the
+framework would have added a large dependency and an indirection layer for
+something the code expresses more clearly itself. The tool-calling wire format
+is the same either way, so swapping in LangChain later would not change the
+tool definitions.
+
+`ai_agent.py` runs plan, execute, narrate, with the guardrails in one place:
+at most three tool calls per question, approved tools only, failed tools
+recorded rather than papered over, and a refusal when nothing fits.
+
+#### The Rule-Based Provider Is Not A Placeholder
+
+It is the default. The demo has to work with no API key, no network, and no
+local model server, and a demo that depends on a third party being reachable
+is a demo that can fail in front of AIA members.
+
+It also serves as the fallback path. If a configured provider fails to
+respond, fails to select a tool, or fails to phrase an answer, the agent falls
+back to deterministic routing and records why in the data-quality notes. This
+matters most for local models: small models are unreliable at multi-step tool
+use, and the failure mode to avoid is fluent prose with no calculation behind
+it.
+
+#### Aggregates Are Calculated, Not Generated
+
+"What is the average MOIC across all funds?" cannot be answered by any single
+tool. Rather than letting the model compute it, the agent computes the mean
+from the structured data the tool already returned, and appends it as a
+labelled line. The model never does arithmetic.
+
+### API Implemented
+
+Seventeen endpoints in `main.py`, covering funds, metrics, the capital
+timeline, methodology notes, sources, briefs, and the AI query route.
+
+Two endpoints exist purely for inspectability: `/api/ai/tools` publishes the
+complete set of tools the agent can reach, and `/api/ai/providers` reports
+which providers are configured. During a demo, the first of those is the
+fastest way to answer "how do you know it isn't making this up".
+
+The API serves the in-memory demo dataset. `database.py` and `seed_data.py`
+provide the Postgres path, but nothing in the demo requires it, so the whole
+product runs with no database and no credentials.
+
+### Frontend Built
+
+React, Vite, Tailwind, and Recharts, as planned.
+
+The hero is the J-curve rather than a row of headline numbers. That was a
+deliberate choice: the shape of capital going out for years before coming back
+is the thing a public-market dashboard cannot show, and leading with it frames
+what the product is for. The break-even crossover is marked on the chart.
+
+Two accent colours carry meaning rather than decoration. Teal is cash actually
+returned to investors (DPI), ochre is value still marked at NAV (RVPI). The
+same pairing appears in the fund table, the stacked comparison chart, and the
+per-fund figures, so the distinction is learnable at a glance. Two funds can
+share a MOIC and be nothing alike, and the palette says so.
+
+Data provenance is a glyph, filled or half-filled or hollow, attached to every
+figure and repeated in the source ledger, with a legend in the header. Making
+provenance a visual primitive rather than a footnote is what turns the
+incompleteness of private-market data from a weakness into the product's
+argument.
+
+The research panel shows which tools ran above the answer, not below it. The
+ordering is the point: you see the calculation before you read the sentence
+built on top of it.
+
+### Tests
+
+The suite went from 17 tests to 71, across five files:
+
+- `test_metrics.py`: the metric layer, including the residual-value path
+- `test_analytics.py`: filters, fund resolution, cohorts, exposure, timeline
+- `test_ai_agent.py`: routing, guardrails, refusals, and fallbacks
+- `test_api.py`: every endpoint, including the 404 and 400 paths
+- `test_models.py`, `test_schemas.py`, `test_research.py`: unchanged in intent
+
+The agent tests run against the rule-based provider and a stub provider, so
+the whole suite passes offline with no API key.
+
+Result:
+
+```text
+71 passed
+```
+
+### Development Challenges
+
+#### IRR Intuition Was Wrong Again
+
+While writing the residual-value test, the expected IRR for `-100` at year 0,
+`-50` at year 1, and `+225` at year 5 was estimated at roughly 20%. The solver
+returned 9.0%.
+
+Checking the arithmetic by hand confirmed the solver: at 9%, the discounted
+inflow of 225 over five years almost exactly offsets 100 plus 50 discounted
+one year. The estimate had mentally treated the multiple as if all the capital
+went in at once at the start.
+
+This is the second time in this project that an intuitive IRR estimate has
+been wrong in the same direction, and the earlier log entry recorded the same
+lesson. The test now carries a comment showing the arithmetic rather than a
+bare expected value. The rule is holding: never write an expected IRR without
+independently checking it.
+
+#### Port 8000 Was Occupied
+
+An unrelated local service held port 8000, so the backend would not start.
+Rather than hard-coding a different port, the Vite config now reads
+`VITE_PROXY_TARGET` through `loadEnv`, so the proxy target is configurable per
+machine through `frontend/.env.local`. This is documented in
+`frontend/.env.example`, because it will happen to someone else.
+
+#### Metric Formatting Drifted
+
+The dashboard showed `2.98x` while the agent's answers showed `2.9818x` for
+the same fund, because the API returns four-decimal Decimals and only the
+frontend was rounding for display. Two different numbers for one figure
+undermines exactly the credibility the product is built on. Formatting is now
+applied consistently in the tool summaries and brief prose as well.
+
+### Current Program Capabilities
+
+AltLens is feature-complete against the build plan. It can:
+
+- calculate IRR, MOIC, DPI, RVPI, and TVPI from dated cash flows, including
+  for funds with no realizations yet
+- serve ten illustrative VC funds with cash flows, NAV snapshots, portfolio
+  companies, and source records over a REST API
+- chart the portfolio J-curve, realized versus unrealized value, vintage-year
+  cohorts, and sector concentration
+- answer research questions through a constrained agent that calls approved
+  tools, shows its work, and refuses out-of-scope questions
+- generate structured research briefs with tables, assumptions, data-quality
+  caveats, sources, and follow-up questions
+- run against a hosted model, a local model, or no model at all
+- deploy to Render and Vercel through checked-in configuration
+
+The remaining work is data, not code. Replacing the illustrative dataset with
+licensed sources means writing an ingestion module and flipping source records
+from `illustrative` to `verified`. Nothing in the schema, the analytics layer,
+the API, or the frontend has to change to accommodate it.
